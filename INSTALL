@@ -1,0 +1,9 @@
+git clone https://github.com/binwiederhier/fanout
+cd fanout
+make
+make debian-install
+update-rc.d fanout defaults
+vi /etc/defaults/fanout
+   # add "--port=8080"
+
+/etc/init.d/fanout start
