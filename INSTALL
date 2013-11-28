@@ -4,6 +4,6 @@ make
 make debian-install
 update-rc.d fanout defaults
 vi /etc/defaults/fanout
-   # add "--port=8080"
+   # add "--port=8080 --client-limit=100"
 
 /etc/init.d/fanout start
