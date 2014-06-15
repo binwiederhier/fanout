@@ -152,13 +152,13 @@ int main (int argc, char *argv[])
     hints.ai_flags = AI_PASSIVE | AI_ADDRCONFIG;
     hints.ai_socktype = SOCK_STREAM;
     int e;
-    int epollfd, nevents, efd, n, res;
+    int epollfd, efd, n, res;
     int portno = 1986;
     int optval;
     socklen_t optlen = sizeof(optval);
     u_int listen_backlog = 25;
     u_int max_events = 25;
-    FILE *pidfile = NULL;
+    char *pidfilename;
     server_start_time = (long)time (NULL);
     char buffer[1025];
 
@@ -215,9 +215,7 @@ int main (int argc, char *argv[])
                         break;
                     // pidfile
                     case 3:
-                        if ((pidfile = fopen (optarg, "w+")) == NULL) {
-                            fanout_error ("ERROR cannot open pidfile");
-                        }
+                        pidfilename = optarg;
                         break;
                     //daemon
                     case 4:
@@ -343,6 +341,7 @@ xit\n");
     struct epoll_event fds[nfds];
 
     for (nfds = 0, runp = ai; runp != NULL; runp = runp->ai_next)  {
+        memset(&fds[nfds], 0, sizeof(struct epoll_event));
         fds[nfds].data.fd = socket (runp->ai_family, runp->ai_socktype, runp->ai_protocol);
         if (fds[nfds].data.fd == -1) {
             fanout_error ("ERROR opening socket");
@@ -398,9 +397,14 @@ xit\n");
            we can exit the parent process. */
         if (pid > 0) {
             /* Write pid to file */
+            FILE *pidfile = NULL;
+            pidfile = fopen (pidfilename, "w+");
             if (pidfile != NULL) {
                 fprintf (pidfile, "%d\n", (int) pid);
                 fclose (pidfile);
+            } else {
+                fanout_error ("ERROR cannot open pidfile");
+                exit (EXIT_FAILURE);
             }
             exit (EXIT_SUCCESS);
         }
@@ -496,6 +500,8 @@ xit\n");
     fanout_debug (2, "max client connections: %d\n", client_limit);
 
     while (1) {
+        int nevents;
+
         fanout_debug (3, "server waiting for new activity\n");
 
         if ((nevents = epoll_wait (epollfd, events, max_events, -1)) == -1)
@@ -677,6 +683,8 @@ void str_swap_free (char **target, char *source)
 
 char *str_append (char *target, const char *data)
 {
+    char *newtarget;
+
     if (data == NULL) {
         return target;
     }
@@ -687,17 +695,23 @@ char *str_append (char *target, const char *data)
     }
 
     int len = strlen (target) + strlen (data) + 1;
-    target = realloc (target, len);
+    newtarget = realloc (target, len);
+    if (newtarget == NULL) {
+        fanout_error ("ERROR unable to allocate memory");
+        exit (EXIT_FAILURE);
+    }
+    newtarget = strcat (newtarget, data);
 
-    return strcat (target, data);
+    return newtarget;
 }
 
 
 void clear_socket_buffer (int sock)
 {
-    int res;
     char buffer[1025];
     for(;;) {
+        int res;
+
         res = read (sock, buffer, 1024);
         
         if (res < 0) {
@@ -905,9 +919,9 @@ void remove_client (struct client *c)
 void shutdown_client (struct client *c)
 {
     struct subscription *subscription_i = subscription_head;
-    struct subscription *subscription_tmp;
 
     while (subscription_i != NULL) {
+        struct subscription *subscription_tmp;
         subscription_tmp = subscription_i;
         subscription_i = subscription_i->next;
         if (c == subscription_tmp->client)
@@ -936,11 +950,10 @@ void destroy_client (struct client *c)
 
 void client_write (struct client *c, const char *data)
 {
-    int sent;
-
     c->output_buffer = str_append (c->output_buffer, data);
 
     while (strlen (c->output_buffer) > 0) {
+        int sent;
         sent = send (c->fd, c->output_buffer, strlen (c->output_buffer),
                       MSG_NOSIGNAL);
         if (sent == -1)
@@ -956,7 +969,6 @@ void client_write (struct client *c, const char *data)
 
 void client_process_input_buffer (struct client *c)
 {
-    char *line;
     char *message;
     char *action;
     char *channel;
@@ -965,6 +977,7 @@ void client_process_input_buffer (struct client *c)
 
     fanout_debug (3, "full buffer\n\n%s\n\n", c->input_buffer);
     while ((i = strcpos (c->input_buffer, '\n')) >= 0) {
+        char *line;
         line = substr (c->input_buffer, 0, i -1);
         fanout_debug (3, "buffer has a newline at char %d\n", i);
         fanout_debug (3, "line is %d chars: %s\n", (u_int) strlen (line), line);
