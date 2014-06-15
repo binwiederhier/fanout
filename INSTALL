@@ -1,16 +1,24 @@
-git clone https://github.com/binwiederhier/fanout
-cd fanout
+Make
+----
 make
 sudo make install
 
-OR
-
+Debian Package (unsigned)
+-------------------------
 debuild -i -us -uc -b
 cd ..
 sudo dpkg -i fanout_*.deb
 
+Ubuntu PPA
+----------------
+debuild -S -k<key-id>
+dput ppa:binwiederhier/fanout
+
+Start automatically
+-------------------
 update-rc.d fanout defaults
+
+Default settings
+----------------
 vi /etc/defaults/fanout
    # add "--port=8080 --client-limit=100"
-
-/etc/init.d/fanout start
