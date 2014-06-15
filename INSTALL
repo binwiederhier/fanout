@@ -11,7 +11,7 @@ sudo dpkg -i fanout_*.deb
 
 Ubuntu PPA
 ----------------
-debuild -S -k<key-id>
+debuild -S -k375E60F1
 dput ppa:binwiederhier/fanout
 
 Start automatically
