@@ -1,7 +1,14 @@
 git clone https://github.com/binwiederhier/fanout
 cd fanout
 make
-make debian-install
+sudo make install
+
+OR
+
+debuild -i -us -uc -b
+cd ..
+sudo dpkg -i fanout_*.deb
+
 update-rc.d fanout defaults
 vi /etc/defaults/fanout
    # add "--port=8080 --client-limit=100"
